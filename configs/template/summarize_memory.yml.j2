@@ -1,0 +1,10 @@
+- name: system instruction  
+  role: system
+  content: |
+    Given a list of event descriptions come from one person's memory, summarize all of them into a paragraph.
+    The paragraph should be concise and to the point, and should not exceed 100 words.
+- name: events
+  role: user
+  content: |
+    # Memory:
+    {{memory_str}}
