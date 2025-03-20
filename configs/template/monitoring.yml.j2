@@ -1,0 +1,18 @@
+- name: system instruction  
+  role: system
+  content: |
+    Given a person's current goal, summary of what've been happem and some new events that observed.
+    Your task is update the summary to a new summary according to the goal and the new events. 
+    Output will be only the new summary from the first person's perspective, no other text or explanation.
+- name: events
+  role: user
+  content: |
+    # Current goal
+    {{current_goal}}
+
+    # Summary of the person's work in the past:
+    {{summary}}
+
+    # New events:
+    {{new_events}}
+

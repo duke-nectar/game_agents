@@ -1,6 +1,8 @@
 import numpy as np
 import os
 import httpx
+from sklearn.cluster import DBSCAN
+from typing import List
 def cosine_similarity(a:list[float],b:list[float]):
     return np.dot(a,b)/(np.linalg.norm(a)*np.linalg.norm(b))
 
@@ -22,3 +24,9 @@ async def get_embedding(text:str):
             return response.json()["data"][0]["embedding"]
     except Exception as e:
         return None
+def dbscan_cluster(embeddings:List[List[float]]):
+    # Use DBSCAN to cluster the embeddings
+    # Return the cluster labels
+    dbscan = DBSCAN(eps=0.5, min_samples=2, metric='cosine')
+    labels = dbscan.fit_predict(np.array(embeddings)) 
+    return labels

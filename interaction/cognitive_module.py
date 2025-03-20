@@ -6,7 +6,7 @@ class CognitiveController:
     def __init__(self,
                  prompt_template_path:str,
                  ):
-        self.prompt_templates = prompt_templates
+        self.prompt_template_path = prompt_template_path
         self.llm = OpenAIChatCompletions(
             params = OpenAIChatCompletionsParams(
                 model="gpt-4o-mini",
