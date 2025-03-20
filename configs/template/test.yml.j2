@@ -1,0 +1,14 @@
+- name: system instructions
+  role: system
+  content: |
+    Your name is {{ character_name }} and you are meant to be helpful and never harmful to humans.
+
+- name: user query
+  role: user
+  content: |
+   {{ username}}: {{ user_query }}
+
+- name: response
+  role: user
+  content: |
+    {{ character_name }}:

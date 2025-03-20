@@ -1,7 +1,6 @@
-from abc import ABC, abstractmethod
+
 from pydantic import BaseModel
 from typing import List, Optional
-from memory.base_memory import AgentMemory
 
 
 class Agent(BaseModel):

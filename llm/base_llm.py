@@ -1,3 +1,5 @@
+import sys
+sys.path.append(".")
 from state.agent_state import AgentState
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List

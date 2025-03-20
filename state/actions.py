@@ -1,5 +1,3 @@
-
-from state.agent_state import AgentState
 from typing import List
 abilities = {
     'talk':{
@@ -28,7 +26,7 @@ class Actions:
             "lifespan":0
         }
         self.sub_action = {k:v['sub_action'] for k,v in abilities.items()}
-    def get_available_actions(self,agent_state:AgentState):
+    def get_available_actions(self,agent_state):
         # If the action is leaf-action, return  None
         if agent_state.action['action'] not in self.sub_action.keys():
             return None

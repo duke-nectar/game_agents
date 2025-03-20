@@ -6,12 +6,14 @@ from llm import *
 import uuid
 from memory.utils import cosine_similarity, get_embedding, dbscan_cluster
 from datetime import datetime
-from state.agent_state import AgentState
 class Event(BaseModel):
     curr_time: datetime
     event_id:str
     description: str
     embedding: Optional[List[float]] = None
+
+# memory structure for the agent, including temp memory, work memory, and long term memory
+# work memory is used for monitoring to update the agent's goal
 class AgentMemory:
     def __init__(self,
                  init_memory:List[str] = [],
@@ -38,7 +40,7 @@ class AgentMemory:
             embedding = await get_embedding(description)
             event = Event(event_id=event_id,description=description,embedding=embedding)
             self.work_memory.append(event)
-    async def add_events(self,descriptions:Optional[List[str]],agent_state:AgentState):
+    async def add_events(self,descriptions:Optional[List[str]],agent_state):
         if descriptions is None:
             return 
         for description in descriptions:
@@ -49,13 +51,16 @@ class AgentMemory:
         if len(self.temp_memory) > self.max_recent_size:
             await self.summarize_and_forget()
             self.temp_memory = []
-    async def retrieve(self, query,top_k:int=5):
-        embedding = await get_embedding(query)
-        # Calculate the cosine similarity between the query embedding and all event embeddings
-        similarities = [cosine_similarity(embedding, event.embedding) for event in self.long_term_memory]
-        # Get the top 5 most similar events
-        top_events = sorted(zip(similarities, self.long_term_memory), key=lambda x: x[0], reverse=True)[:top_k]
-        return top_events
+    async def retrieve(self, queries:List[str],top_k:int=5):
+        all_related_events = []
+        for query in queries:
+            embedding = await get_embedding(query)
+            # Calculate the cosine similarity between the query embedding and all event embeddings
+            similarities = [cosine_similarity(embedding, event.embedding) for event in self.long_term_memory]
+            # Get the top 5 most similar events
+            top_events = sorted(zip(similarities, self.long_term_memory), key=lambda x: x[0], reverse=True)[:top_k]
+            all_related_events.extend(top_events)
+        return list(set([event.description for event in all_related_events]))
     # Need to implement this function
     async def monitoring(self,current_goal:str):
         prompt = Prompt(
@@ -93,3 +98,8 @@ class AgentMemory:
         )   
         response = await self.llm(prompt)
         return response.choices[0].message.content
+
+if __name__ == "__main__":
+    memory = AgentMemory()
+    memory.add_events(["I went to the store","I bought a new shirt"],AgentState())
+    print(memory.retrieve("I went to the store"))

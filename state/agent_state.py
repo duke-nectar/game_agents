@@ -1,8 +1,10 @@
 from agent.base_agent import Agent
-from typing import Dict
+from typing import Dict 
 from memory.base_memory import AgentMemory
 from state.actions import Actions
 from state.base_state import BaseState
+import threading
+from interaction.monitoring import Monitoring
 class AgentState(BaseState):
     """
     Container class for all the agent states.
@@ -19,19 +21,28 @@ class AgentState(BaseState):
         self.agent = agent
         self.current_goal = self.agent.goal
         self.current_time = None
+
+        #Lock for thread-safe
+        self.lock = threading.Lock()
         #self.schedule = schedule
         #self.knowledge = knowledge
+        self.related_events = []
         self.action_controller = Actions(self.agent.all_available_actions)
         if memory is None:
             self.memory = AgentMemory(max_recent_size=20,init_memory=self.agent.init_memory)
         else:
             self.memory = memory
-    async def update(self, observation:Dict):
+    async def get_observation(self, observation:Dict):
         #Update the state 
-        self.current_time =  observation.get("current_time", None)
+        self.current_time =  observation.get("current_time", self.current_time)
         #self.schedule.update(observation.get("schedule", None))
         #self.knowledge.update(observation.get("knowledge", None))
-        self.current_goal.update(observation.get("current_goal", None))
-        await self.memory.add_events(observation.get("events", None),self)
-        self.action_controller.update(observation.get("action", None))
-        
+        await self.memory.add_events(observation.get("event", None),self)
+        self.related_events = self.memory.retrieve(observation.get("event", None))
+        new_goal = Monitoring.update(self,observation.get("event", None))
+        with self.lock:
+            await self.update_goal(new_goal)
+    async def update_goal(self,goal:str):
+        self.current_goal = goal
+    async def update_action(self,action:str | None):
+        self.action_controller.update(action)
