@@ -7,11 +7,18 @@ import asyncio
 import threading
 from interaction.monitoring import Monitoring
 from interaction.cognitive_module import CognitiveController
+from interaction.action_executor import BaseActionExecutor, TalkExecutor, MoveExecutor, FindExecutor
+str_to_executor = {
+    "talk": TalkExecutor,
+    "move": MoveExecutor,
+    "find": FindExecutor
+}
 class AgentState(BaseState):
     """
     Container class for all the agent states.
     - Passed as input to chains
     """
+    lock = threading.Lock()
     def __init__(self,
                  agent:Agent,
                  location,
@@ -30,12 +37,12 @@ class AgentState(BaseState):
         self.all_event_observation = []
         # Number of new events to trigger the self-monitoring module
         self.monitoring_trigger = monitoring_trigger
-        #Lock for thread-safe
-        self.lock = threading.Lock()
-        #self.schedule = schedule
-        #self.knowledge = knowledge
-        #self.related_events = []
+        self.current_conversation = None
+        
+        # Used to add the agent to the network
+        self.relationships = {}
         self.action_controller = Actions(self.agent.all_available_actions) #Handle all the actions of the agent
+        self.executor = None # execute the action
         if memory is None:
             self.memory = AgentMemory(max_recent_size=20,init_memory=self.agent.init_memory)
             # Add the initial summary to the memory
@@ -44,8 +51,10 @@ class AgentState(BaseState):
             self.memory = memory
 
     # Main function, get observation from the game engine, update the agent state
+    def add_relationship(self, agent_state:AgentState):
+        self.relationships[agent_state.agent.name] = agent_state 
     async def get_observation(self, observation:Dict):
-        #Update the state 
+        #Update the state   
         self.current_time =  observation.get("current_time", self.current_time)
         # The observation["events"] should be in form like a list of dictionaries
         # observation["events"] = [{"description":"description (action and goal)", "agent":"agent_name"},....]
@@ -66,9 +75,21 @@ class AgentState(BaseState):
                 self.receive_utterance(talk["utterance"])
         should_call_coginitve = len(self.action_controller.get_available_actions()) > 0 
         if should_call_coginitve:
+            self.executor = None
             action, goal = await CognitiveController.execute(self)
-            with self.lock:
-                self.update_action(action,goal)
+            with AgentState.lock:
+                if self.executor is None:
+                    self.update_action(action,goal)
+                    if action != "talk":
+                        self.executor = str_to_executor[action]()
+                    else:
+                        # goal is like: "agent_name: The goal of the conversation"
+                        executor = TalkExecutor(self.agent.name, self.relationships[goal.split(" ")[0]], " ".join(goal.split(" ")[1:]))
+                        self.executor = executor
+                        self.relationships[goal.split(" ")[0]].executor = executor
+                else:
+                    self.executor.goal += "\n" + " ".join(goal.split(" ")[1:])
+                    # if action is talk, set to the target_executor too
         #else:
 
         #self.schedule.update(observation.get("schedule", None))

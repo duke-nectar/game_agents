@@ -18,6 +18,11 @@ class TalkExecutor(BaseActionExecutor):
             top_k = 250,
             repetition_penalty = 1.1)
     )
+    template_path = "configs/template/iterative_convo.yml.j2"
+    def __init__(self, first_talker, second_talker, goal):
+        self.first_talker = first_talker
+        self.second_talker = second_talker
+        self.goal = goal
     async def execute(self, agent_state):
         pass
 class MoveExecutor(BaseActionExecutor):

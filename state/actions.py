@@ -35,7 +35,6 @@ class Actions:
         }
         self.goal = None
         self.talking_with = None
-        self.current_conversation = None
         self.planned_path = None
     def get_available_actions(self):
         # If the action is leaf-action, return  None
