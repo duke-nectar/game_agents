@@ -2,7 +2,7 @@ from abc import abstractmethod
 from pydantic import BaseModel
 from typing import List, Optional
 from prompt_poet import Prompt
-from llm import *
+from llm.openai_llm import OpenAIChatCompletions, OpenAIChatCompletionsParams
 import uuid
 from memory.utils import cosine_similarity, get_embedding, dbscan_cluster
 from datetime import datetime
@@ -12,18 +12,18 @@ class Event(BaseModel):
     description: str
     embedding: Optional[List[float]] = None
 
-# memory structure for the agent, including temp memory, work memory, and long term memory
-# work memory is used for monitoring to update the agent's goal
+# memory structure for the agent, including temp memory and long term memory
+# temp memory is used for store the self-monitoring summaries (the summary in first person perspective of the what the agent has seen and done)
 class AgentMemory:
     def __init__(self,
                  init_memory:List[str] = [],
                  max_recent_size:int=10,
                  max_long_term_size:int=100):
         self.temp_memory = []
-        self.work_memory = []
         self.long_term_memory = init_memory
         self.max_recent_size = max_recent_size
         self.max_long_term_size = max_long_term_size
+        self.threshold = 0.8 # First initial value, can be changed later
         self.llm =  OpenAIChatCompletions(
             params = OpenAIChatCompletionsParams(
                 model="gpt-4o-mini",
@@ -38,16 +38,18 @@ class AgentMemory:
         if description not in [event.description for event in self.temp_memory] + [event.description for event in self.long_term_memory]:
             event_id = str(uuid.uuid4())
             embedding = await get_embedding(description)
+            similarities = [cosine_similarity(embedding, event.embedding) for event in self.temp_memory]
+            max_similarity = max(similarities)
+            max_similarity_index = similarities.index(max_similarity)
+            if max_similarity > self.threshold:
+                del self.temp_memory[max_similarity_index]
             event = Event(event_id=event_id,description=description,embedding=embedding)
-            self.work_memory.append(event)
+            self.temp_memory.append(event)
     async def add_events(self,descriptions:Optional[List[str]],agent_state):
         if descriptions is None:
             return 
         for description in descriptions:
             await self.add_event(description)
-        if len(self.work_memory) > self.max_workmem_size:
-            await self.monitoring(agent_state.current_goal)
-            self.work_memory = []
         if len(self.temp_memory) > self.max_recent_size:
             await self.summarize_and_forget()
             self.temp_memory = []
@@ -62,6 +64,7 @@ class AgentMemory:
             all_related_events.extend(top_events)
         return list(set([event.description for event in all_related_events]))
     # Need to implement this function
+    # TODO: Change it to the interaction/monitoring.py
     async def monitoring(self,current_goal:str):
         prompt = Prompt(
             template_path="configs/template/monitoring.yml.j2",
@@ -88,7 +91,7 @@ class AgentMemory:
             clusters[label].append(event)
         for label, events in clusters.items():
             group_sumarize = await self.summarize_events(events)
-
+            #TODO: Complete it
     async def summarize_events(self,events:List[Event]):
         prompt = Prompt(
             template_path="configs/template/summarize_memory.yml.j2",
@@ -98,8 +101,6 @@ class AgentMemory:
         )   
         response = await self.llm(prompt)
         return response.choices[0].message.content
+    def get_all_events_description(self):
+        return [event.description for event in self.temp_memory] + [event.description for event in self.long_term_memory]
 
-if __name__ == "__main__":
-    memory = AgentMemory()
-    memory.add_events(["I went to the store","I bought a new shirt"],AgentState())
-    print(memory.retrieve("I went to the store"))

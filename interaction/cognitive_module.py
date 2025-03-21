@@ -1,6 +1,7 @@
 from typing import Dict
 from prompt_poet import Prompt
-from llm import *
+from llm.openai_llm import OpenAIChatCompletions, OpenAIChatCompletionsParams
+from state.agent_state import AgentState
 class CognitiveController:
     # Prompt templates is the template using for each action
     def __init__(self,
