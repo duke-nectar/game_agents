@@ -6,6 +6,7 @@ from state.base_state import BaseState
 import asyncio
 import threading
 from interaction.monitoring import Monitoring
+from interaction.cognitive_module import CognitiveController
 class AgentState(BaseState):
     """
     Container class for all the agent states.
@@ -34,14 +35,15 @@ class AgentState(BaseState):
         #self.schedule = schedule
         #self.knowledge = knowledge
         #self.related_events = []
-        self.action_controller = Actions(self.agent.all_available_actions)
+        self.action_controller = Actions(self.agent.all_available_actions) #Handle all the actions of the agent
         if memory is None:
             self.memory = AgentMemory(max_recent_size=20,init_memory=self.agent.init_memory)
             # Add the initial summary to the memory
             self.memory.add_event(description=self.summary)
         else:
             self.memory = memory
-        self.planned_path = [] # The path that the agent will take, if empty mean the agent will stay in the current location
+
+    # Main function, get observation from the game engine, update the agent state
     async def get_observation(self, observation:Dict):
         #Update the state 
         self.current_time =  observation.get("current_time", self.current_time)
@@ -56,8 +58,9 @@ class AgentState(BaseState):
             thread = threading.Thread(target=self._update_summary_thread)
             thread.daemon = True
             thread.start()
-
-        
+        should_call_coginitve = len(self.action_controller.get_available_actions()) > 0 
+        if should_call_cognitive:
+            action, goal = await self.cognitive_module.execute(self)
         #self.schedule.update(observation.get("schedule", None))
         #self.knowledge.update(observation.get("knowledge", None))
         #await asyncio.gather(
