@@ -34,7 +34,7 @@ class CognitiveController:
     @classmethod
     async def execute(cls, agent_state):
         all_actions = agent_state.action_controller.get_available_actions()
-        if len(all_actions) == 0:
-            return None
-        
+        if len(all_actions) == 1:
+            return all_actions[0], ""
+        action, goal = await cls.run_llm(agent_state)
         return action, goal

@@ -47,8 +47,8 @@ class AgentState(BaseState):
     async def get_observation(self, observation:Dict):
         #Update the state 
         self.current_time =  observation.get("current_time", self.current_time)
-        # The events should be in form like a list of dictionaries
-        # Each dictionary is an event that happend around the agent, at least have keys: description (the utterance if it is a chat event, or the description of the event), from_agent, to (an agent or a location), type (chat, move, etc...)
+        # The observation["events"] should be in form like a list of dictionaries
+        # observation["events"] = [{"description":"description (action and goal)", "agent":"agent_name"},....]
         # This could be changed due to the game engine
         new_events = observation.get("events", [])
         new_events = [event for event in new_events if event not in self.all_event_observation]
@@ -58,15 +58,21 @@ class AgentState(BaseState):
             thread = threading.Thread(target=self._update_summary_thread)
             thread.daemon = True
             thread.start()
+
+        #TODO: Must check if receive the utterance from the other agent, and update the action controller
+        # observation["talk"] = [{"from":"agent_name", "to":"agent_name", "utterance":"utterance"}....]
+        for talk in observation["talk"]:
+            if talk["to"] == self.agent.name:
+                self.receive_utterance(talk["utterance"])
         should_call_coginitve = len(self.action_controller.get_available_actions()) > 0 
-        if should_call_cognitive:
-            action, goal = await self.cognitive_module.execute(self)
+        if should_call_coginitve:
+            action, goal = await CognitiveController.execute(self)
+            with self.lock:
+                self.update_action(action,goal)
+        #else:
+
         #self.schedule.update(observation.get("schedule", None))
         #self.knowledge.update(observation.get("knowledge", None))
-        #await asyncio.gather(
-        #    self.memory.add_events(observation.get("events", None),self),
-        #    self.update_goal()
-       # )
     def _update_summary_thread(self):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -77,5 +83,11 @@ class AgentState(BaseState):
                 self.memory.add_events(descriptions=[new_summary])
         finally:
             loop.close()
-    async def update_action(self,action:str | None):
-        self.action_controller.update(action)
+    def update_action(self,action:str | None,goal:str | None):
+        self.action_controller.update(action,goal)
+    def receive_utterance(self,utterance:str):
+        self.action_controller.receive_utterance(utterance)
+    # Module for the agent to perceive the environment and get the observation
+    async def perceive(self):
+        #TODO: Implement the perception module
+        pass

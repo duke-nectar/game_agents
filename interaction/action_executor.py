@@ -23,3 +23,6 @@ class TalkExecutor(BaseActionExecutor):
 class MoveExecutor(BaseActionExecutor):
     async def execute(self, agent_state):
         pass
+class FindExecutor(BaseActionExecutor):
+    async def execute(self, agent_state):
+        pass
