@@ -10,18 +10,17 @@ action_executor = {
 }
 class CognitiveController:
     # Prompt templates is the template using for each action
-    llm = OpenAIChatCompletions(
-        params = OpenAIChatCompletionsParams(
-            model="gpt-4o-mini",
-                temperature=0.0,
-                max_tokens=1000,
-                top_p=1.0)
-        )
+    llm = OpenAIChatCompletions()
+    llm.params = OpenAIChatCompletionsParams(
+        model="gpt-4o-mini",
+        temperature=0.0,
+        max_tokens=1000,
+        top_p=1.0)
     @classmethod
     async def run_llm(cls, agent_state):
         prompt = Prompt(
             template_path="configs/template/cognitive_controller.yml.j2",
-            params=agent_state.data
+            params=agent_state.cognitive_data
         )
         response = await cls.llm.generate(prompt)
         try: 

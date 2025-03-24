@@ -13,14 +13,13 @@ class BaseActionExecutor:
 
 # Currently will have move, talk, find, maybe intimate. 
 class TalkExecutor(BaseActionExecutor):
-    llm = OpenRouterChatCompletions(
-        params = OpenRouterChatCompletionsParams(
-            model="deepseek/deepseek-chat",
-            temperature=0.0,
-            min_p=0.1,
-            top_k = 250,
-            repetition_penalty = 1.1)
-    )
+    llm = OpenRouterChatCompletions()
+    llm.params = OpenRouterChatCompletionsParams(
+        model="deepseek/deepseek-chat",
+        temperature=0.0,
+        min_p=0.1,
+        top_k = 250,
+        repetition_penalty = 1.1)
     template_path = "configs/template/iterative_convo.yml.j2"
     def __init__(self, first_talker, second_talker, goal):
         self.first_talker = first_talker
@@ -49,7 +48,7 @@ class TalkExecutor(BaseActionExecutor):
                 params={
                     "target_agent_name": agent_state.agent.name,
                     "description": agent_state.agent.get_information(),
-                    "current_conversation": self.current_conversation,
+                    "current_conversation": agent_state.current_conversation,
                     "context": self.context
                 }
             )
@@ -57,17 +56,28 @@ class TalkExecutor(BaseActionExecutor):
             response = json.loads(response)
             utterance = response["utterance"]
             end_conversation = response["end_conversation"]
-            self.current_conversation.append(utterance)
+            self.current_conversation.append({"name":agent_state.agent.name, "utterance":utterance})
+            agent_state.current_conversation = self.current_conversation
+            # Sync 
             self.line_duration = self.get_line_duration(utterance)
             if end_conversation:
                 agent_state.action_controller.set_lifespan(self.line_duration+1)
         else:
             self.line_duration -= 1
     def get_line_duration(self,utterance:str):
-        pass 
+        return 10 
+    
+
+
 class MoveExecutor(BaseActionExecutor):
     async def execute(self, agent_state):
         pass
+
+
 class FindExecutor(BaseActionExecutor):
+    async def execute(self, agent_state):
+        pass
+
+class ReflectionExecutor(BaseActionExecutor):
     async def execute(self, agent_state):
         pass

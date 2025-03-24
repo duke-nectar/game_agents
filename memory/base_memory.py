@@ -2,7 +2,7 @@ from abc import abstractmethod
 from pydantic import BaseModel
 from typing import List, Optional
 from prompt_poet import Prompt
-from llm.openai_llm import OpenAIChatCompletions, OpenAIChatCompletionsParams
+from llm.openai_client import OpenAIChatCompletions, OpenAIChatCompletionsParams
 import uuid
 from memory.utils import cosine_similarity, get_embedding, dbscan_cluster
 from datetime import datetime
@@ -24,15 +24,14 @@ class AgentMemory:
         self.max_recent_size = max_recent_size
         self.max_long_term_size = max_long_term_size
         self.threshold = 0.8 # First initial value, can be changed later
-        self.llm =  OpenAIChatCompletions(
-            params = OpenAIChatCompletionsParams(
-                model="gpt-4o-mini",
-                temperature=0.0,
-                max_tokens=1000,
-                top_p=1.0,
-                frequency_penalty=0.0,
-                presence_penalty=0.0
-            )
+        self.llm =  OpenAIChatCompletions()
+        self.llm.params = OpenAIChatCompletionsParams(
+            model="gpt-4o-mini",
+            temperature=0.0,
+            max_tokens=1000,
+            top_p=1.0,
+            frequency_penalty=0.0,
+            presence_penalty=0.0
         )
     async def add_event(self,description:str):
         if description not in [event.description for event in self.temp_memory] + [event.description for event in self.long_term_memory]:
@@ -58,7 +57,7 @@ class AgentMemory:
         for query in queries:
             embedding = await get_embedding(query)
             # Calculate the cosine similarity between the query embedding and all event embeddings
-            similarities = [cosine_similarity(embedding, event.embedding) for event in self.long_term_memory]
+            similarities = [cosine_similarity(embedding, event.embedding) for event in (self.long_term_memory + self.temp_memory)]
             # Get the top 5 most similar events
             top_events = sorted(zip(similarities, self.long_term_memory), key=lambda x: x[0], reverse=True)[:top_k]
             all_related_events.extend(top_events)

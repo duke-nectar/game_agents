@@ -3,18 +3,32 @@ from typing import Dict
 from memory.base_memory import AgentMemory
 from state.actions import Actions
 from state.base_state import BaseState
+from pydantic import BaseModel
 import asyncio
 import threading
+from typing import List
 from interaction.monitoring import Monitoring
 from interaction.cognitive_module import CognitiveController
-from interaction.action_executor import BaseActionExecutor, TalkExecutor, MoveExecutor, FindExecutor
+from interaction.action_executor import  TalkExecutor, MoveExecutor, FindExecutor
 str_to_executor = {
     "talk": TalkExecutor,
     "move": MoveExecutor,
     "find": FindExecutor
 }
-class AgentState(BaseState):
-    """
+
+class ObservationEvent(BaseModel):
+    description: str
+    agent_name: str
+    target: str
+    type: str
+
+
+class Observation(BaseModel):
+    current_time: str
+    events: List[ObservationEvent]
+
+class AgentState:
+    """ 
     Container class for all the agent states.
     - Passed as input to chains
     """
@@ -22,15 +36,13 @@ class AgentState(BaseState):
     def __init__(self,
                  agent:Agent,
                  location,
+                 current_time,
                  monitoring_trigger = 5,
-                 schedule = None,
-                 knowledge = None ,
-                 memory = None
                  ):
         self.location = location
         self.agent = agent
         self.current_goal = self.agent.goal
-        self.current_time = None
+        self.current_time = current_time
         self.summary = self.agent.summary
         self.nearby_objects = None
         self.recent_events = []
@@ -44,24 +56,30 @@ class AgentState(BaseState):
         self.action_controller = Actions(self.agent.all_available_actions) #Handle all the actions of the agent
         self.executor = None # execute the action
         self.executor_lock = threading.Lock()
-        if memory is None:
-            self.memory = AgentMemory(max_recent_size=20,init_memory=self.agent.init_memory)
+        self.memory = AgentMemory(max_recent_size=20,init_memory=self.agent.init_memory)
             # Add the initial summary to the memory
-            self.memory.add_event(description=self.summary)
-        else:
-            self.memory = memory
+        self.memory.add_event(description=self.summary)
 
     # Main function, get observation from the game engine, update the agent state
-    def add_relationship(self, agent_state:AgentState):
+    def add_relationship(self, agent_state:'AgentState'):
         self.relationships[agent_state.agent.name] = agent_state 
-    async def get_observation(self, observation:Dict):
+    #observation is the observation from the game engine
+    # observation["events"] = [{"description":"description (action and goal)", "agent":"agent_name"},"target": "can be a location or an agent name","type":"move,talk,.."....]
+    # observation["current_time"] = current time
+    async def get_observation(self, observation:Observation):
         #Update the state   
-        self.current_time =  observation.get("current_time", self.current_time)
+        self.current_time =  observation.current_time 
         # The observation["events"] should be in form like a list of dictionaries
-        # observation["events"] = [{"description":"description (action and goal)", "agent":"agent_name"},....]
+        # observation["events"] = [{"description":"description (action and goal)", "agent":"agent_name"},"target": "can be a location or an agent name","type":"move,talk,.."....]
         # This could be changed due to the game engine
-        new_events = observation.get("events", [])
+        new_events = observation.events
         new_events = [event for event in new_events if event not in self.all_event_observation]
+        #for event in new_events:
+        #    if event.type == "talk" and event.target == self.agent.name:
+        #        self.receive_utterance(event.description)
+        # Stop if there is no new events
+        if len(new_events) == 0:
+            return 
         self.recent_events.extend(new_events)
         self.all_event_observation.extend(new_events)
         if len(self.recent_events) >= self.monitoring_trigger:
@@ -71,9 +89,6 @@ class AgentState(BaseState):
 
         #TODO: Must check if receive the utterance from the other agent, and update the action controller
         # observation["talk"] = [{"from":"agent_name", "to":"agent_name", "utterance":"utterance"}....]
-        for talk in observation["talk"]:
-            if talk["to"] == self.agent.name:
-                self.receive_utterance(talk["utterance"])
         should_call_coginitve = len(self.action_controller.get_available_actions()) > 0 
         if should_call_coginitve:
             self.executor = None
@@ -86,16 +101,12 @@ class AgentState(BaseState):
                         self.executor = executor
                         # if the other agent is already doing something, need to update the action too
                         # TODO: Need to check if the other agent is already doing something, and do it after talking with the current agent. 
-                        if self.relationships[goal.split(" ")[0]].executor is not None:
-                            self.relationships[goal.split(" ")[0]].update_action("talk", "")
-                        self.relationships[goal.split(" ")[0]].executor = executor
+                        if self.relationships[goal.split(":")[0]].executor is not None:
+                            self.relationships[goal.split(":")[0]].update_action("talk", "")
+                        self.relationships[goal.split(":")[0]].executor = executor
                     else:
                         self.executor = str_to_executor[action]()
                         # goal is like: "agent_name: The goal of the conversation"
-                else:
-                    # If not none, that mean someone set up a talk with the agent
-                    self.executor.goal += "\n" + " ".join(goal.split(" ")[1:])
-                    # if action is talk, set to the target_executor too
         else:
             # Only 1 thread can use the executor at a time
             if hasattr(self.executor, "lock"):
@@ -112,7 +123,7 @@ class AgentState(BaseState):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            new_summary = loop.run_until_complete(Monitoring.update_summary(self))
+            new_summary = loop.run_until_complete(Monitoring.update_summary(self.current_goal,self.recent_events,self.summary))
             with self.lock:
                 self.summary = new_summary
                 self.memory.add_events(descriptions=[new_summary])
@@ -126,3 +137,12 @@ class AgentState(BaseState):
     async def perceive(self):
         #TODO: Implement the perception module
         pass
+    @property
+    def cognitive_data(self):
+        return {
+            "persona_info":self.agent.get_information(),
+            "current_goal":self.current_goal,
+            "available_actions":self.action_controller.get_available_actions(),
+            "recent_events": self.recent_events,
+            "retrieved_events": self.memory.retrieve(queries=[self.current_goal])
+        }

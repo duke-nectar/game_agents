@@ -1,12 +1,12 @@
 import sys
 sys.path.append(".")
-from state.agent_state import AgentState
+#from state.agent_state import AgentState
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 from pydantic import BaseModel
 import httpx
 class LLM(ABC):
-    async def run(self, state: AgentState):
+    async def run(self, state):
         if not self.template:
             return None
         prompt = await self.template.run(state)

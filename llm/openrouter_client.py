@@ -1,4 +1,4 @@
-from base_llm import ChatCompletion, LLMClient, LLMParams
+from llm.base_llm import ChatCompletion, LLMClient, LLMParams
 import os
 import asyncio
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
