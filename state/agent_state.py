@@ -43,6 +43,7 @@ class AgentState(BaseState):
         self.relationships = {}
         self.action_controller = Actions(self.agent.all_available_actions) #Handle all the actions of the agent
         self.executor = None # execute the action
+        self.executor_lock = threading.Lock()
         if memory is None:
             self.memory = AgentMemory(max_recent_size=20,init_memory=self.agent.init_memory)
             # Add the initial summary to the memory
@@ -80,17 +81,30 @@ class AgentState(BaseState):
             with AgentState.lock:
                 if self.executor is None:
                     self.update_action(action,goal)
-                    if action != "talk":
-                        self.executor = str_to_executor[action]()
-                    else:
-                        # goal is like: "agent_name: The goal of the conversation"
+                    if action == "talk":
                         executor = TalkExecutor(self.agent.name, self.relationships[goal.split(" ")[0]], " ".join(goal.split(" ")[1:]))
                         self.executor = executor
+                        # if the other agent is already doing something, need to update the action too
+                        # TODO: Need to check if the other agent is already doing something, and do it after talking with the current agent. 
+                        if self.relationships[goal.split(" ")[0]].executor is not None:
+                            self.relationships[goal.split(" ")[0]].update_action("talk", "")
                         self.relationships[goal.split(" ")[0]].executor = executor
+                    else:
+                        self.executor = str_to_executor[action]()
+                        # goal is like: "agent_name: The goal of the conversation"
                 else:
+                    # If not none, that mean someone set up a talk with the agent
                     self.executor.goal += "\n" + " ".join(goal.split(" ")[1:])
                     # if action is talk, set to the target_executor too
-        #else:
+        else:
+            # Only 1 thread can use the executor at a time
+            if hasattr(self.executor, "lock"):
+                lock = self.executor.lock
+            else:
+                lock = self.executor_lock
+            with lock:
+                self.executor.execute(self)
+            self.update_action()
 
         #self.schedule.update(observation.get("schedule", None))
         #self.knowledge.update(observation.get("knowledge", None))

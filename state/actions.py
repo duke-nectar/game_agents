@@ -70,6 +70,8 @@ class Actions:
                 "lifespan":8
             }
         self.current_conversation.append(utterance)
+    def set_lifespan(self,lifespan:int):
+        self.current_action['lifespan'] = lifespan
 
 
 
