@@ -42,14 +42,11 @@ class Actions:
         self.current_conversation = []
         self.goal = None
         self.talking_with = None
-        self.planned_path = None
         self.action_history = []
     def get_available_actions(self):
         # If the action is leaf-action, return  None
         available_actions = self.action_list
         if self.talking_with is not None:
-            return []
-        if self.planned_path is not None:
             return []
         if self.current_action['lifespan'] <= 0:
             if self.current_action['name'] == "talk":

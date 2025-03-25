@@ -19,6 +19,27 @@ class Map:
     # self.map[y][x] = [Event(description,from_agent,to,type)]
     def access_tile(self,x:int,y:int):
         return self.maze[y][x]
+    def get_arenas_in_sector(self,sector:str):
+        all_locations = self.get_tile_by_location(sector,"sector")
+        all_arenas = []
+        for location in all_locations:
+            if self.maze[location[1]][location[0]]["arena"] != "empty" and self.maze[location[1]][location[0]]["arena"] not in all_arenas:
+                all_arenas.append(self.maze[location[1]][location[0]]["arena"])
+        return all_arenas
+    def get_tile_by_location(self,sector,arena):
+        all_locations = []
+        for i in range(len(self.maze)):
+            for j in range(len(self.maze[i])):
+                if self.maze[i][j]["sector"] == sector and self.maze[i][j]["arena"] == arena:
+                    all_locations.append((i,j))
+        return all_locations
+    def get_all_locations(self,level:str):
+        all_locations = []
+        for i in range(len(self.maze)):
+            for j in range(len(self.maze[i])):
+                if self.maze[i][j][level] != "empty" and self.maze[i][j][level] not in all_locations:
+                    all_locations.append(self.maze[i][j][level])
+        return all_locations
     def set_tile_init(self, level:str):
         level_map = []
         annotation = {}
@@ -49,14 +70,23 @@ class Map:
         self.set_tile_init("game_object")
         #TODO: Get the collison later, just test with this first
     def get_nearby_tiles(self,x:int,y:int,radius:int=1) -> List[ObservationEvent]:
-        # TODO: Implement the nearby tiles
-        pass
+        nearby_tiles_events = []
+        for i in range(y-radius, y+radius+1):
+            for j in range(x-radius, x+radius+1):
+                if 0 <= i < len(self.maze) and 0 <= j < len(self.maze[i]):
+                    if 'events' in self.maze[i][j]:
+                        nearby_tiles_events.extend(self.maze[i][j]['events'])
+        return nearby_tiles_events
     def set_event(self,x:int,y:int,event:ObservationEvent):
         if 'events' not in self.maze[y][x]:
             self.maze[y][x]['events'] = []
         self.maze[y][x]['events'].append(event)
         # TODO: Implement the event setting
-        pass
+    def clear_events(self):
+        for i in range(len(self.maze)):
+            for j in range(len(self.maze[i])):
+                if 'events' in self.maze[i][j]:
+                    self.maze[i][j]['events'] = []
 if __name__ == "__main__":
     map = Map(map_dir=map_dir)
     print(map.access_tile(x=120,y=52))

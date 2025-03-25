@@ -4,6 +4,8 @@ from llm.openrouter_client import OpenRouterChatCompletions, OpenRouterChatCompl
 from prompt_poet import Prompt
 import json
 import threading
+import random
+from interaction.utils import path_finder
 # After cognitive controller choose the action and update to the agent state (action_name, duration)
 # The action executor will execute the action
 class BaseActionExecutor:
@@ -85,13 +87,16 @@ class MoveExecutor(BaseActionExecutor):
         agent_current_location = agent_state.map.access_tile(agent_state.location[0],agent_state.location[1])
         sector = agent_current_location["sector"] if agent_current_location["sector"] != "empty" else ""
         arena = agent_current_location["arena"] if agent_current_location["arena"] != "empty" else ""
-        agent_current_location_str = f"{agent_current_location['sector']} {agent_current_location['arena']}"
+        agent_current_location_str = f"{sector} {arena}"
         if self.sector is None:
+            all_sectors = agent_state.map.get_all_locations("sector")
             prompt = Prompt(
                 template_path="configs/template/move_sector.yml.j2",
                 params={
-                    "goal": self.goal,
+                    "name": agent_state.agent.name,
+                    "current_goal": self.goal,
                     "current_location": agent_current_location_str,
+                    "all_sectors": all_sectors
                 }
             )
             response = await self.llm.generate(prompt)
@@ -101,17 +106,23 @@ class MoveExecutor(BaseActionExecutor):
             prompt = Prompt(
                 template_path="configs/template/move_arena.yml.j2",
                 params={
-                    "goal": self.goal,
-                    "current_location": agent_state.agent.location,
+                    "name": agent_state.agent.name,
+                    "sector": self.sector,
+                    "current_goal": self.goal,
+                    "arenas": agent_state.map.get_arenas_in_sector(self.sector)
                 }
             )
             response = await self.llm.generate(prompt)
             response = json.loads(response)
             self.arena = response["arena"]
+        elif agent_state.planned_path is None:
+            all_tiles = agent_state.map.get_tile_by_location(self.sector,self.arena)
+            tile = random.choice(all_tiles)
+            agent_state.planned_path = path_finder(agent_state.location,tile)
         else:
-            pass
-
-
+            next_step = agent_state.planned_path[0]
+            agent_state.location = next_step
+            agent_state.planned_path = agent_state.planned_path[1:]
 class FindExecutor(BaseActionExecutor):
     async def execute(self, agent_state):
         pass

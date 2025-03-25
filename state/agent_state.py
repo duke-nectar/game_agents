@@ -108,7 +108,7 @@ class AgentState:
                             self.relationships[goal.split(":")[0]].update_action("talk", "")
                         self.relationships[goal.split(":")[0]].executor = executor
                     elif action == "move":
-                        self.executor = MoveExecutor(goal)
+                        self.executor = MoveExecutor(goal,map)
                         # goal is like: "agent_name: The goal of the conversation"
         else:
             # Only 1 thread can use the executor at a time
