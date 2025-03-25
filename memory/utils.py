@@ -23,6 +23,7 @@ async def get_embedding(text:str):
             response.raise_for_status()
             return response.json()["data"][0]["embedding"]
     except Exception as e:
+        print(f"Error getting embedding: {e}")
         return None
 def dbscan_cluster(embeddings:List[List[float]]):
     # Use DBSCAN to cluster the embeddings

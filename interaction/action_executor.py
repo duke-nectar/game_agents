@@ -70,8 +70,46 @@ class TalkExecutor(BaseActionExecutor):
 
 
 class MoveExecutor(BaseActionExecutor):
+    llm = OpenRouterChatCompletions()
+    llm.params = OpenRouterChatCompletionsParams(
+        model="deepseek/deepseek-chat",
+        temperature=0.0,
+        min_p=0.1,
+        top_k = 250,
+        repetition_penalty = 1.1)
+    def __init__(self,goal):
+        self.goal = goal
+        self.sector = None
+        self.arena = None
     async def execute(self, agent_state):
-        pass
+        agent_current_location = agent_state.map.access_tile(agent_state.location[0],agent_state.location[1])
+        sector = agent_current_location["sector"] if agent_current_location["sector"] != "empty" else ""
+        arena = agent_current_location["arena"] if agent_current_location["arena"] != "empty" else ""
+        agent_current_location_str = f"{agent_current_location['sector']} {agent_current_location['arena']}"
+        if self.sector is None:
+            prompt = Prompt(
+                template_path="configs/template/move_sector.yml.j2",
+                params={
+                    "goal": self.goal,
+                    "current_location": agent_current_location_str,
+                }
+            )
+            response = await self.llm.generate(prompt)
+            response = json.loads(response)
+            self.sector = response["sector"]
+        elif self.arena is None:
+            prompt = Prompt(
+                template_path="configs/template/move_arena.yml.j2",
+                params={
+                    "goal": self.goal,
+                    "current_location": agent_state.agent.location,
+                }
+            )
+            response = await self.llm.generate(prompt)
+            response = json.loads(response)
+            self.arena = response["arena"]
+        else:
+            pass
 
 
 class FindExecutor(BaseActionExecutor):

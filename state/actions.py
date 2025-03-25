@@ -13,7 +13,7 @@ abilities = [
     {
         "name":"find",
         "description":"Find a person",
-        "lifespan":1000 # set higher lifespan, terminated when find the target person
+        "lifespan": 1000 # set higher lifespan, terminated when find the target person
     },
     {
         "name":"reflection",
@@ -43,6 +43,7 @@ class Actions:
         self.goal = None
         self.talking_with = None
         self.planned_path = None
+        self.action_history = []
     def get_available_actions(self):
         # If the action is leaf-action, return  None
         available_actions = self.action_list
@@ -69,17 +70,23 @@ class Actions:
                     }
                     break
             self.goal = goal
+            self.action_history.append({"action":action,"goal":goal,"duration":0})
+            # Reset the talking with and planned path
+            self.talking_with = None
+            self.planned_path = None
+            if action == "talk":
+                self.talking_with = goal.split(":")[0]
         else:
             self.current_action['lifespan'] -= 1
-    def receive_utterance(self,utterance:str):
-        if self.current_action['name'] != "talk":
-            self.current_action = {
-                "name":"talk",
-                "lifespan":8
-            }
-        self.current_conversation.append(utterance)
+            self.action_history[-1]['duration'] += 1
+            if self.planned_path is not None:
+                next_step = self.planned_path[0]
+                self.planned_path = self.planned_path[1:]
+                return next_step 
     def set_lifespan(self,lifespan:int):
         self.current_action['lifespan'] = lifespan
 
-
+    @property
+    def action_str(self):
+        return f"{self.name} is {self.current_action['name']} to {self.goal}"
 

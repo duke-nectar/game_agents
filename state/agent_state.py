@@ -37,8 +37,10 @@ class AgentState:
                  agent:Agent,
                  location,
                  current_time,
+                 map,
                  monitoring_trigger = 5,
                  ):
+        self.map = map
         self.location = location
         self.agent = agent
         self.current_goal = self.agent.goal
@@ -56,10 +58,11 @@ class AgentState:
         self.action_controller = Actions(self.agent.all_available_actions) #Handle all the actions of the agent
         self.executor = None # execute the action
         self.executor_lock = threading.Lock()
-        self.memory = AgentMemory(max_recent_size=20,init_memory=self.agent.init_memory)
-            # Add the initial summary to the memory
-        self.memory.add_event(description=self.summary)
-
+        self.memory = AgentMemory(
+            name=self.agent.name,
+            max_recent_size=20,
+            init_memory=self.agent.init_memory
+        )
     # Main function, get observation from the game engine, update the agent state
     def add_relationship(self, agent_state:'AgentState'):
         self.relationships[agent_state.agent.name] = agent_state 
@@ -104,8 +107,8 @@ class AgentState:
                         if self.relationships[goal.split(":")[0]].executor is not None:
                             self.relationships[goal.split(":")[0]].update_action("talk", "")
                         self.relationships[goal.split(":")[0]].executor = executor
-                    else:
-                        self.executor = str_to_executor[action]()
+                    elif action == "move":
+                        self.executor = MoveExecutor(goal)
                         # goal is like: "agent_name: The goal of the conversation"
         else:
             # Only 1 thread can use the executor at a time
@@ -129,10 +132,22 @@ class AgentState:
                 self.memory.add_events(descriptions=[new_summary])
         finally:
             loop.close()
+    @property
+    def get_action_str(self):
+        return self.action_controller.action_str
+    @property
+    def get_action_event(self):
+        if self.action_controller.current_action["name"] == "move":
+            sector = self.action_controller.sector if self.action_controller.sector is not None else ""
+            arena = self.action_controller.arena if self.action_controller.arena is not None else ""
+            to = f"{sector} {arena}"
+        elif self.action_controller.current_action["name"] == "talk":
+            to = self.action_controller.talking_with
+        else:
+            to = ""
+        return ObservationEvent(description=self.get_action_str,from_agent=self.agent.name,to=to,type=self.action_controller.current_action["name"])
     def update_action(self,action:str | None,goal:str | None):
         self.action_controller.update(action,goal)
-    def receive_utterance(self,utterance:str):
-        self.action_controller.receive_utterance(utterance)
     # Module for the agent to perceive the environment and get the observation
     async def perceive(self):
         #TODO: Implement the perception module
