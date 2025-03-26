@@ -43,15 +43,19 @@ class Actions:
         self.goal = None
         self.talking_with = None
         self.action_history = []
+        self.sector = None
+        self.arena = None
+        self.planned_path = None
     def get_available_actions(self):
         # If the action is leaf-action, return  None
-        available_actions = self.action_list
+        available_actions = [x["name"] for x in self.action_list]
         if self.talking_with is not None:
             return []
         if self.current_action['lifespan'] <= 0:
             if self.current_action['name'] == "talk":
                 return ["reflection"]
             return available_actions
+        return []
         # If the action is not expired, return the sub-actions of the current action
         # Else return all available actions
     # if new action is added, update the current action
@@ -85,5 +89,5 @@ class Actions:
 
     @property
     def action_str(self):
-        return f"{self.name} is {self.current_action['name']} to {self.goal}"
+        return f"{self.current_action['name']} to {self.goal}"
 

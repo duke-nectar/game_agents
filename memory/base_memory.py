@@ -71,7 +71,8 @@ class AgentMemory:
             similarities = [cosine_similarity(embedding, event.embedding) for event in (self.long_term_memory + self.temp_memory)]
             # Get the top 5 most similar events
             top_events = sorted(zip(similarities, self.long_term_memory), key=lambda x: x[0], reverse=True)[:top_k]
-            all_related_events.extend(top_events)
+            all_related_events.extend([event[1] for event in top_events])
+            #print(all_related_events)
         return list(set([event.description for event in all_related_events]))
     # Need to implement this function
     # TODO: Change it to the interaction/monitoring.py

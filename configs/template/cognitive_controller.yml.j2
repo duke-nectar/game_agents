@@ -4,15 +4,18 @@
     You are a cognitive controller for a person.
     Your task is to decide the next action for the person based on the current goal and the available actions.
     Output will be a json with the following fields, otherwise don't explain anything:
-    - reasoning: A short explanation of your choice of action.
-    - action: the next action for the person. Must be one of the available actions.
-    - goal: the goal for the next action (mostly summary of the reasoning). If the action is 'talk', the goal will be in the format 'target_persona: the goal of the conversation'.
-- name: user_message
+    1. reasoning: A short explanation of your choice of action.
+    2. action: the next action for the person. Must be one of the available actions.
+    3. goal: the goal for the next action (mostly summary of the reasoning). 
+    If the action is 'talk', the target persona must be nearby (if there is no nearby persona,can't choose this action). In that case, the goal will be in the format 'full name of target persona: the goal of the conversation'.
+
+- name: user message
   role: user
   content: |
     # Persona information:
-    {{persona_info}}
-    Current time is {{current_time}} and {{persona_name}} is currently at {{current_location}}.
+    {{ persona_info }}
+    
+    Current time is {{ current_time }} and {{ persona_name}} is currently at {{ current_location }}.
     
     # Current goal
     {{current_goal}}
@@ -22,6 +25,9 @@
     
     # Memories
     {{retrieved_events}}
+    
+    # Nearby personas
+    {{nearby_personas}}
     
     # Available actions
     {{available_actions}}

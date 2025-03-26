@@ -40,14 +40,14 @@ class TalkExecutor(BaseActionExecutor):
             ## TODO: Get new utterance and decide to end the conversation or not
             ## Also create a function to generate the duration of the utterance, add to self.line_duration, each step will decrease the duration by 1 
             context = f"{self.first_talker}'s goal: {self.goal}\n"
-            recent_events = "\n".join(agent_state.recent_events) if agent_state.recent_events is not None else ""
-            retrieved_memory = agent_state.memory.retrieve([self.goal,self.second_talker])
-            retrieved_memory_str = "\n".join(retrieved_memory)
+            recent_events = ";".join([x.description for x in agent_state.recent_events]) if agent_state.recent_events is not None else ""
+            retrieved_memory = await agent_state.memory.retrieve([self.goal,self.second_talker])
+            retrieved_memory_str = ";".join(retrieved_memory)
             context += f"Recent events: {recent_events}\n"
             context += f"Memory in {self.first_talker}'s head: {retrieved_memory_str}\n"
             prompt = Prompt(
                 template_path=self.template_path,
-                params={
+                template_data={
                     "target_agent_name": agent_state.agent.name,
                     "description": agent_state.agent.get_information(),
                     "current_conversation": agent_state.current_conversation,
@@ -55,7 +55,7 @@ class TalkExecutor(BaseActionExecutor):
                 }
             )
             response = await self.llm.generate(prompt)
-            response = json.loads(response)
+            response = json.loads(response["choices"][0]["message"]["content"])
             utterance = response["utterance"]
             end_conversation = response["end_conversation"]
             self.current_conversation.append({"name":agent_state.agent.name, "utterance":utterance})
@@ -92,7 +92,7 @@ class MoveExecutor(BaseActionExecutor):
             all_sectors = agent_state.map.get_all_locations("sector")
             prompt = Prompt(
                 template_path="configs/template/move_sector.yml.j2",
-                params={
+                template_data={
                     "name": agent_state.agent.name,
                     "current_goal": self.goal,
                     "current_location": agent_current_location_str,
@@ -100,12 +100,15 @@ class MoveExecutor(BaseActionExecutor):
                 }
             )
             response = await self.llm.generate(prompt)
-            response = json.loads(response)
-            self.sector = response["sector"]
+            response = response["choices"][0]["message"]["content"].strip()
+            self.sector = response.strip("'").strip('"')
+            #response = json.loads(response["choices"][0]["message"]["content"])
+            #self.sector = response["sector"]
         elif self.arena is None:
+            print(f"Moving to {self.sector}")
             prompt = Prompt(
                 template_path="configs/template/move_arena.yml.j2",
-                params={
+                template_data={
                     "name": agent_state.agent.name,
                     "sector": self.sector,
                     "current_goal": self.goal,
@@ -113,8 +116,10 @@ class MoveExecutor(BaseActionExecutor):
                 }
             )
             response = await self.llm.generate(prompt)
-            response = json.loads(response)
-            self.arena = response["arena"]
+            response = response["choices"][0]["message"]["content"].strip()
+            self.arena = response.strip("'").strip('"')
+            #response = json.loads(response["choices"][0]["message"]["content"])
+            #self.arena = response["arena"]
         elif agent_state.planned_path is None:
             all_tiles = agent_state.map.get_tile_by_location(self.sector,self.arena)
             tile = random.choice(all_tiles)

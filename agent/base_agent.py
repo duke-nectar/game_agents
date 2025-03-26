@@ -19,5 +19,5 @@ class Agent(BaseModel):
         infor += f"Gender: {self.gender}\n"
         infor += f"Age: {self.age}\n"
         infor += f"Lifestyle: {self.lifestyle}\n"
-        infor += f"Example Utterances: {self.example_utterances}\n"
+        infor += f"Example Utterances: {str(self.example_utterances)}\n"
         return infor

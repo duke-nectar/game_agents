@@ -1,4 +1,6 @@
 def path_finder(start_location, end_location):
+    start_location = tuple(start_location)
+    end_location = tuple(end_location)
     # Define the possible movements in the map
     movements = [(0, 1), (0, -1), (1, 0), (-1, 0)]
     

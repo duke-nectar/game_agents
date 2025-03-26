@@ -64,6 +64,10 @@ class TextCompletion(LLM,LLMClient):
                 finally:
                     if response and response.is_success:
                         resp_json = response.json()
+                        with open("./log/llm_log.txt","a") as f:
+                            f.write("----------------------------------\n")
+                            f.write(f"Prompt: {prompt}\n")
+                            f.write(f"Response: {resp_json}\n")
                 break
             return resp_json
 class ChatCompletion(LLM,LLMClient):
@@ -71,6 +75,7 @@ class ChatCompletion(LLM,LLMClient):
     async def generate(self,prompt):
         prompt.tokenize()
         messages = [{"role":p.role,"content":p.content} for p in prompt.parts]
+        response = None
         async with httpx.AsyncClient() as client:
             req_json = self._get_chat_completions_req(messages,params=self.params)
             for retry_count in range(self.max_retries):
@@ -88,6 +93,10 @@ class ChatCompletion(LLM,LLMClient):
                 finally:
                     if response and response.is_success:
                         resp_json = response.json()
+                        with open("./log/llm_log.txt","a") as f:
+                            f.write("----------------------------------\n")
+                            f.write(f"Prompt: {prompt.string}\n")
+                            f.write(f"Response: {resp_json}\n")
                         break
             return resp_json
     
