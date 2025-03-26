@@ -93,6 +93,7 @@ class AgentState:
         self.recent_events.extend(new_events)
         self.all_event_observation.extend(new_events)
         if len(self.recent_events) >= self.monitoring_trigger:
+            print(f"Updating summary for {self.agent.name}")
             thread = threading.Thread(target=self._update_summary_thread)
             thread.daemon = True
             thread.start()
@@ -124,13 +125,15 @@ class AgentState:
                         self.executor = MoveExecutor(goal)
                         # goal is like: "agent_name: The goal of the conversation"
         else:
+            print("Executor running")
             # Only 1 thread can use the executor at a time
             if hasattr(self.executor, "lock"):
                 lock = self.executor.lock
             else:
                 lock = self.executor_lock
-            with lock:
-                await self.executor.execute(self)
+            if self.executor is not None:
+                with lock:
+                    await self.executor.execute(self)
             self.update_action()
 
         #self.schedule.update(observation.get("schedule", None))

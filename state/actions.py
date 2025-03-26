@@ -80,10 +80,6 @@ class Actions:
         else:
             self.current_action['lifespan'] -= 1
             self.action_history[-1]['duration'] += 1
-            if self.planned_path is not None:
-                next_step = self.planned_path[0]
-                self.planned_path = self.planned_path[1:]
-                return next_step 
     def set_lifespan(self,lifespan:int):
         self.current_action['lifespan'] = lifespan
 

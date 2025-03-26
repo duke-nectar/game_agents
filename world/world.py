@@ -53,7 +53,8 @@ class World:
                     "location":agent_state.location,
                     "goal":agent_state.current_goal,
                     "summary":agent_state.summary,
-                    "action_description": agent_state.get_action_event.description
+                    "action_description": agent_state.get_action_event.description,
+                    "action_lifespan": agent_state.action_controller.current_action['lifespan']
                 }
             time.sleep(0.5)
             with open(os.path.join(self.log_dir,f"world_{self.current_time}.json"),"w") as f:
@@ -66,14 +67,24 @@ class World:
         asyncio.set_event_loop(loop)
         async def agent_task():
             while self.running:
-                x,y = agent_state.location
-                current_time = str(self.current_time)
-                events = self.map.get_nearby_tiles(x,y)
-                observation = Observation(current_time=current_time,events=events)
-                await agent_state.get_observation(observation)
-                print(f"Agent state: {agent_state.agent.name} updated at {current_time}")
-                await asyncio.sleep(1)
-        loop.run_until_complete(agent_task())
+                try:
+                    print(f"Agent state: {agent_state.agent.name} started update at {self.current_time}")
+                    x,y = agent_state.location
+                    current_time = str(self.current_time)
+                    events = self.map.get_nearby_tiles(x,y)
+                    observation = Observation(current_time=current_time,events=events)
+                    await agent_state.get_observation(observation)
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    print(f"Error updating agent {agent_state.agent.name}: {str(e)}")
+                    # Add a small delay before retrying after an error
+                    await asyncio.sleep(1)
+        try:
+            loop.run_until_complete(agent_task())
+        except Exception as e:
+            print(f"Fatal error in agent {agent_state.agent.name} thread: {str(e)}")
+        finally:
+            loop.close()
     async def start_task(self):
         capture_thread = threading.Thread(target=self.capture_world)
         capture_thread.daemon = True

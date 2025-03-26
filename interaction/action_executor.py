@@ -12,7 +12,8 @@ class BaseActionExecutor:
     @classmethod
     def execute(self, agent_state):
         raise NotImplementedError("Subclasses must implement this method")
-
+    def shut_down(self,agent_state):
+        agent_state.action_controller.set_lifespan(0)
 # Currently will have move, talk, find, maybe intimate. 
 class TalkExecutor(BaseActionExecutor):
     llm = OpenRouterChatCompletions()
@@ -105,7 +106,7 @@ class MoveExecutor(BaseActionExecutor):
             #response = json.loads(response["choices"][0]["message"]["content"])
             #self.sector = response["sector"]
         elif self.arena is None:
-            print(f"Moving to {self.sector}")
+            print(f"Agent {agent_state.agent.name} is moving to {self.sector}")
             prompt = Prompt(
                 template_path="configs/template/move_arena.yml.j2",
                 template_data={
@@ -123,11 +124,15 @@ class MoveExecutor(BaseActionExecutor):
         elif agent_state.planned_path is None:
             all_tiles = agent_state.map.get_tile_by_location(self.sector,self.arena)
             tile = random.choice(all_tiles)
-            agent_state.planned_path = path_finder(agent_state.location,tile)
+            print(f"Agent {agent_state.agent.name} is moving to {tile}")
+            agent_state.planned_path = path_finder(agent_state.location,tile)[1:]
         else:
+            print(f"Agent {agent_state.agent.name} is moving to {self.sector}:{self.arena} according to the planned path: {agent_state.planned_path[0]}")
             next_step = agent_state.planned_path[0]
-            agent_state.location = next_step
             agent_state.planned_path = agent_state.planned_path[1:]
+            agent_state.location = next_step
+            if len(agent_state.planned_path) <= 1:
+                self.shut_down(agent_state)
 class FindExecutor(BaseActionExecutor):
     async def execute(self, agent_state):
         pass
