@@ -40,23 +40,26 @@ class TalkExecutor(BaseActionExecutor):
         elif (self.line_duration <= 0) and (not self.is_conversation_end):
             ## TODO: Get new utterance and decide to end the conversation or not
             ## Also create a function to generate the duration of the utterance, add to self.line_duration, each step will decrease the duration by 1 
-            context = f"{self.first_talker}'s goal: {self.goal}\n"
+            context = {}
+            context["goal"] =  f"{self.first_talker}'s goal: {self.goal}"
             recent_events = ";".join([x.description for x in agent_state.recent_events]) if agent_state.recent_events is not None else ""
             retrieved_memory = await agent_state.memory.retrieve([self.goal,self.second_talker])
             retrieved_memory_str = ";".join(retrieved_memory)
-            context += f"Recent events: {recent_events}\n"
-            context += f"Memory in {self.first_talker}'s head: {retrieved_memory_str}\n"
+            context["recent_events"] = recent_events
+            context["memory"] = retrieved_memory_str
+            print(context)
             prompt = Prompt(
-                template_path=self.template_path,
+                template_path="configs/template/iterative_convo.yml.j2",
                 template_data={
                     "target_agent_name": agent_state.agent.name,
-                    "description": agent_state.agent.get_information(),
-                    "current_conversation": agent_state.current_conversation,
-                    "context": self.context
+                    "description": agent_state.agent.get_information().replace("\n",";\t"),
+                    "current_conversation": self.current_conversation if len(self.current_conversation) > 0 else "[The conversation haven't started yet]",
+                    "context": context
                 }
             )
             response = await self.llm.generate(prompt)
-            response = json.loads(response["choices"][0]["message"]["content"])
+            print(response["choices"][0]["message"]["content"].replace("```json","").strip())
+            response = json.loads(response["choices"][0]["message"]["content"].replace("```json","").strip())
             utterance = response["utterance"]
             end_conversation = response["end_conversation"]
             self.current_conversation.append({"name":agent_state.agent.name, "utterance":utterance})

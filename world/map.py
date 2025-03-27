@@ -75,8 +75,8 @@ class Map:
         #TODO: Get the collison later, just test with this first
     def get_nearby_tiles(self,x:int,y:int,radius:int=5) -> List[ObservationEvent]:
         nearby_tiles_events = []
-        for i in range(y-radius, y+radius+1):
-            for j in range(x-radius, x+radius+1):
+        for i in range(x-radius, x+radius+1):
+            for j in range(y-radius, y+radius+1):
                 try:
                     if 'events' in self.access_tile(i,j):
                         nearby_tiles_events.extend(self.access_tile(i,j)['events'])

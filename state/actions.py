@@ -31,7 +31,7 @@ act_to_emoji = {
 # Handle the action config and get the available actions
 # Currently all agents have ability to talk and move first, can be expand to more actions and specific for each agent later
 class Actions:
-    def __init__(self,
+    def __init__(self,agent_name:str,
                  action_available:List[str]=None):
         self.action_list = abilities
         self.current_action = {
@@ -43,6 +43,7 @@ class Actions:
         self.goal = None
         self.talking_with = None
         self.action_history = []
+        self.agent_name = agent_name
         self.sector = None
         self.arena = None
         self.planned_path = None
@@ -80,10 +81,15 @@ class Actions:
         else:
             self.current_action['lifespan'] -= 1
             self.action_history[-1]['duration'] += 1
-    def set_lifespan(self,lifespan:int):
-        self.current_action['lifespan'] = lifespan
-
+    def set_lifespan(self,lifespan:int=None):
+        if lifespan is not None:
+            self.current_action['lifespan'] = lifespan
+        else:
+            self.current_action['lifespan'] = self.action_list[self.current_action['name']]['lifespan']
     @property
     def action_str(self):
-        return f"{self.current_action['name']} to {self.goal}"
+        if self.goal is not None:
+            return f"Action from {self.agent_name}: {self.current_action['name']}, Goal: {self.goal}"
+        else:
+            return f"Action from {self.agent_name}: {self.current_action['name']}"
 

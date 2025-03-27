@@ -10,12 +10,18 @@
     Ensure that your output is formatted as a json object below without explain anything in above steps.
     {
         "utterance": What {{target_agent_name}} said,
-        "end_conversation": True/False
+        "end_conversation": true/false
     }
     Description of {{target_agent_name}}:
     {{description}}
-    Context of the conversation:
-    {{context}}
+    Context for the conversation:
+    {{context.goal}}
+
+    Recent events:
+    {{context.recent_events}}
+
+    Memory in {{target_agent_name}}'s head:
+    {{context.memory}}
 {% for message in current_conversation %}
 - name: chat_message_{{loop.index}}
   role: user

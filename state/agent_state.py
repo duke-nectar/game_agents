@@ -2,10 +2,11 @@ from agent.base_agent import Agent
 from typing import Dict 
 from memory.base_memory import AgentMemory
 from state.actions import Actions
-from state.base_state import BaseState
+from state.base_state import BaseState  
 from pydantic import BaseModel
 import asyncio
 import threading
+import copy
 from typing import List
 from interaction.monitoring import Monitoring
 from interaction.cognitive_module import CognitiveController
@@ -24,7 +25,10 @@ class ObservationEvent(BaseModel):
     from_agent: str = ""
     @property
     def full_description(self):
-        return f"From: {self.from_agent} To: {self.target} Type: {self.type} Description: {self.description}"
+        if self.target != "":
+            return f"Event from {self.from_agent}: To: {self.target}, Description: {self.description}\n\t"
+        else:
+            return f"Event from {self.from_agent}: Description: {self.description}\n\t"
 
 
 class Observation(BaseModel):
@@ -59,7 +63,7 @@ class AgentState:
         
         # Used to add the agent to the network
         self.relationships = {}
-        self.action_controller = Actions(self.agent.all_available_actions) #Handle all the actions of the agent
+        self.action_controller = Actions(self.agent.name,self.agent.all_available_actions) #Handle all the actions of the agent
         self.executor = None # execute the action
         self.executor_lock = threading.Lock()
         self.memory = AgentMemory(
@@ -109,20 +113,23 @@ class AgentState:
             self.executor = None
             action, goal = await CognitiveController.execute(self)
             action, goal = action.strip(), goal.strip()
-            with AgentState.lock:
-                if self.executor is None:
-                    self.update_action(action,goal)
-                    if action == "talk":
-                        executor = TalkExecutor(self.agent.name, goal.split(":")[0], " ".join(goal.split(":")[1:]))
-                        self.executor = executor
-                        # if the other agent is already doing something, need to update the action too
-                        # TODO: Need to check if the other agent is already doing something, and do it after talking with the current agent. 
-                        #print(self.relationships)
-                        if self.relationships[goal.split(":")[0]].executor is not None:
-                            self.relationships[goal.split(":")[0]].update_action("talk", f"{self.agent.name}: ")
-                        self.relationships[goal.split(":")[0]].executor = executor
-                    elif action == "move":
-                        self.executor = MoveExecutor(goal)
+            if action != "no action":
+                with AgentState.lock:
+                    if self.executor is None:
+                        self.update_action(action,goal)
+                        if action == "talk":
+                            executor = TalkExecutor(self.agent.name, goal.split(":")[0], " ".join(goal.split(":")[1:]))
+                            self.executor = executor
+                            # if the other agent is already doing something, need to update the action too
+                            # TODO: Need to check if the other agent is already doing something, and do it after talking with the current agent. 
+                            #print(self.relationships)
+                            if self.relationships[goal.split(":")[0]].executor is not None:
+                                self.relationships[goal.split(":")[0]].update_action("talk", f"{self.agent.name}: ")
+                            self.relationships[goal.split(":")[0]].executor = executor
+                        elif action == "move":
+                            self.executor = MoveExecutor(goal)
+                    else:
+                        self.action_controller
                         # goal is like: "agent_name: The goal of the conversation"
         else:
             print("Executor running")
@@ -143,9 +150,14 @@ class AgentState:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
+            recent_events = copy.deepcopy(self.recent_events)
+            self.recent_events = []
             new_summary = loop.run_until_complete(
-                Monitoring.update_summary(self.current_goal, self.recent_events, self.summary)
+                Monitoring.update_summary(self.current_goal, recent_events, self.summary)
             )
+            
+            print(f"New summary: {new_summary}")
+
             with self.lock:
                 self.summary = new_summary
                 loop.run_until_complete(self.memory.add_events(descriptions=[new_summary]))
@@ -186,15 +198,19 @@ class AgentState:
         sector = agent_current_location["sector"] if agent_current_location["sector"] != "empty" else ""
         arena = agent_current_location["arena"] if agent_current_location["arena"] != "empty" else ""
         agent_current_location_str = f"{sector} {arena}"
-        nearby_personas = ";".join([event.from_agent for event in self.recent_events]) 
+        nearby_personas = list(set([event.from_agent for event in self.recent_events]))
+        nearby_personas_str = ";".join(nearby_personas) 
+        action_available = self.action_controller.get_available_actions()
+        if len(nearby_personas) == 1:
+            action_available.remove("talk")
         return {
             "persona_info":self.agent.get_information(),
             "current_goal":self.current_goal,
-            "available_actions":",".join(self.action_controller.get_available_actions()),
+            "available_actions":",".join(action_available),
             "recent_events": ";".join([event.full_description for event in self.recent_events]),
-            "retrieved_events": ";".join(self.retrieved_events),
+            "retrieved_events": "\n\t".join(self.retrieved_events),
             "current_time":str(self.current_time),
             "persona_name":self.agent.name,
             "current_location":agent_current_location_str,
-            "nearby_personas":nearby_personas
+            "nearby_personas":nearby_personas_str   
         }

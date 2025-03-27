@@ -1,11 +1,11 @@
-- name: system instruction  
+- name: system instruction
   role: system
   content: |
     You are a cognitive controller for a person.
     Your task is to decide the next action for the person based on the current goal and the available actions.
     Output will be a json with the following fields, otherwise don't explain anything:
     1. reasoning: A short explanation of your choice of action.
-    2. action: the next action for the person. Must be one of the available actions.
+    2. action: the next action for the person. Must be one of the available actions or "no action" if you don't want to change the current action.
     3. goal: the goal for the next action (mostly summary of the reasoning). 
     If the action is 'talk', the target persona must be nearby (if there is no nearby persona,can't choose this action). In that case, the goal will be in the format 'full name of target persona: the goal of the conversation'.
 
@@ -16,6 +16,8 @@
     {{ persona_info }}
     
     Current time is {{ current_time }} and {{ persona_name}} is currently at {{ current_location }}.
+
+    {{persona_name}} is currently {{ current_action }}.
     
     # Current goal
     {{current_goal}}

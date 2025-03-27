@@ -1,5 +1,5 @@
-import sys
 import asyncio
+import traceback
 import os 
 from agent.base_agent import Agent
 from state.agent_state import ObservationEvent, Observation
@@ -40,6 +40,7 @@ class World:
             self.agent_states.append(new_agent_state)
             
     def capture_world(self):
+        step_count = 0
         while self.running:
             #print("--------------------------------")
             #print(f"Current time: {self.current_time}")
@@ -47,18 +48,24 @@ class World:
             agent = {}
             for agent_state in self.agent_states:
                 self.map.set_event(agent_state.location[0], agent_state.location[1], agent_state.get_action_event)
+                #print(self.map.access_tile(agent_state.location[0],agent_state.location[1]))
                 #print(f"Agent: {agent_state.agent.name} in {agent_state.location}")
                 #print(f"Action: {agent_state.get_action_event}")
                 agent[agent_state.agent.name] = {
                     "location":agent_state.location,
+                    "location_str": f"{self.map.access_tile(agent_state.location[0],agent_state.location[1])['sector']}:{self.map.access_tile(agent_state.location[0],agent_state.location[1])['arena']}",
                     "goal":agent_state.current_goal,
                     "summary":agent_state.summary,
                     "action_description": agent_state.get_action_event.description,
-                    "action_lifespan": agent_state.action_controller.current_action['lifespan']
+                    "action_lifespan": agent_state.action_controller.current_action['lifespan'],
+                    "current_conversation": agent_state.current_conversation,
+                    "memories": agent_state.memory.get_all_events_description()
                 }
             time.sleep(0.5)
-            with open(os.path.join(self.log_dir,f"world_{self.current_time}.json"),"w") as f:
-                json.dump(agent,f,ensure_ascii=False,indent=2)
+            step_count += 1
+            if step_count % 10 == 0:
+                with open(os.path.join(self.log_dir,f"world_{self.current_time}.json"),"w") as f:
+                    json.dump(agent,f,ensure_ascii=False,indent=2)
             self.current_time += datetime.timedelta(seconds=5)
             ## TODO: Get all agent_state data 
     def update_agent(self,agent_state):
@@ -72,17 +79,20 @@ class World:
                     x,y = agent_state.location
                     current_time = str(self.current_time)
                     events = self.map.get_nearby_tiles(x,y)
+                    #print(events)
                     observation = Observation(current_time=current_time,events=events)
                     await agent_state.get_observation(observation)
                     await asyncio.sleep(1)
                 except Exception as e:
                     print(f"Error updating agent {agent_state.agent.name}: {str(e)}")
+                    print(traceback.format_exc())
                     # Add a small delay before retrying after an error
                     await asyncio.sleep(1)
         try:
             loop.run_until_complete(agent_task())
         except Exception as e:
             print(f"Fatal error in agent {agent_state.agent.name} thread: {str(e)}")
+            print(traceback.format_exc())
         finally:
             loop.close()
     async def start_task(self):
